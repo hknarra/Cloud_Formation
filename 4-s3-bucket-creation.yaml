@@ -1,0 +1,9 @@
+Resources:
+  MyS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: hk-sc-cfn-bucket
+      AccessControl: Private
+      Tags:
+        - Key: Name
+          Value: hk-sc-cfn-bucket
