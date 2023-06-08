@@ -1,0 +1,34 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Metadata:
+  AWS::CloudFormation::StackName: CFNstack-hk-glue-service-role
+Resources:
+  GlueServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: hk-sc-cfn-GlueServiceRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: GlueServiceRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: s3:*
+                Resource: "*"
+              - Effect: Allow
+                Action: glue:*
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - states:*
+                  - stepfunctions:*
+                Resource: "*"
+              - Effect: Allow
+                Action: athena:*
+                Resource: "*"

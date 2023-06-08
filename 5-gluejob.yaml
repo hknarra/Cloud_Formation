@@ -1,0 +1,15 @@
+Resources:
+  MyGlueJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: my-example-job
+      Role: arn:aws:iam::557539863687:role/my-glue-s3-access
+      Command:
+        Name: glueetl
+        ScriptLocation: s3://hk-output-2023-june/scripts/my-glue-script.py
+      DefaultArguments:
+        "--job-language": python
+        "--TempDir": "s3://hk-output-2023-june/scripts/temp/"
+      GlueVersion: 3.0
+      WorkerType: G.1X
+      NumberOfWorkers: 2
