@@ -62,7 +62,7 @@ Resources:
         - arn:aws:iam::aws:policy/AmazonS3FullAccess
         - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
         - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
-        
+
       Policies:
         - PolicyName: MyLambdaPolicy
           PolicyDocument:
@@ -81,7 +81,7 @@ Resources:
     Properties:
       FunctionName: 1_Lambada_copy_s3_s3_test1
       Runtime: python3.10
-      Handler: index.lambda_handler
+      Handler: 20_lambda_file_copy_s3_s3.lambda_handler
       Role: !GetAtt LambdaFullAccessRole.Arn
       Timeout: !Ref NHKLambdaTimeout
       MemorySize: !Ref NHKLambdaMemorySize

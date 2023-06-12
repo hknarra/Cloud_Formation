@@ -23,7 +23,7 @@ Resources:
     Properties:
       FunctionName: MyLambdaFunction_test1
       Runtime: python3.8
-      Handler: index.handler
+      Handler: 20_lambda_file_copy_s3_s3.lambda_handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
         S3Bucket: hk-june2023-bucket2
