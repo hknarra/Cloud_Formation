@@ -1,0 +1,174 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: "This template is for a complete pipeline"
+
+Parameters:
+  ApplicationName:
+    Description: "Name of the application"
+    Type: String
+    AllowedPattern: '[a-z][0-9a-z-]*[0-9a-z]'
+    Default: 'hk-cfn-full-template'
+    MinLength: 3
+    MaxLength: 30
+    ConstraintDescription: "Between 3 and 30 characters"
+  NHKLambdaMemorySize:
+    Description: 'The size of the memory in MB allocated per invocation of the function'
+    Type: Number
+    MinValue: 128
+    MaxValue: 10240
+    Default: 128
+  NHKLambdaTimeout:
+    Default: '300'
+    Description: Timeout in seconds for the Lambda function
+    Type: Number
+  NHKGlueTimeout:
+    Description: 'Timeout value for glue job in Minutes'
+    Type: Number
+    Default: 2880
+  MaxConcurrentRuns:
+    Description: "Maximum number of concurrent runs for the Glue job"
+    Type: Number
+    Default: 6
+  WorkerType:
+    Description: "Type of worker for the Glue job"
+    Type: String
+    Default: "Standard"
+    AllowedValues: ["Standard", "G.1X", "G.2X"]
+    ConstraintDescription: "Invalid worker type specified"
+  NumberOfWorkers:
+    Description: "Number of workers for the Glue job"
+    Type: Number
+    Default: 2
+    MinValue: 2
+    MaxValue: 14
+    ConstraintDescription: "Number of workers must be between 2 and 14"
+
+
+Resources:
+# Lambda Full Access Role
+  LambdaFullAccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: Lambda_Full_Access_test1
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::434014680348:policy/hk-june2023-policy1
+      Policies:
+        - PolicyName: MyLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:log-group:/aws/lambda/MyLambdaFunction:*
+
+# Resource Lambda Function to copy CSV from s3 to s3
+  MyLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: 1_Lambada_copy_s3_s3_test1
+      Runtime: python3.10
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaFullAccessRole.Arn
+      Timeout: !Ref NHKLambdaTimeout
+      MemorySize: !Ref NHKLambdaMemorySize
+      Code:
+        S3Bucket: hk-june2023-bucket2
+        S3Key: lambda_scripts/20_lambda_file_copy_s3_s3.zip
+
+
+# Glue service role for glue job
+  HKGlueServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: Glue_Full_Access_test1
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+        - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
+        - arn:aws:iam::434014680348:policy/hk-june2023-policy1
+
+# Resource Glue Job
+  MyGlueJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: GlueJob_test1
+      Role: !GetAtt HKGlueServiceRole.Arn
+      Command:
+        Name: glueetl
+        ScriptLocation: s3://aws-glue-assets-434014680348-us-east-1/scripts/hk_gluejob1-june2023.py
+      DefaultArguments:
+        "--job-language": python
+      WorkerType: !Ref WorkerType
+      Timeout: !Ref NHKGlueTimeout
+      NumberOfWorkers: !Ref NumberOfWorkers
+      GlueVersion: "3.0"
+
+
+# StepFunction Full Access Role
+  StepFunctionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: StepFunctions_Full_Access_test1
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaRole
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+        - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
+
+
+# Resource Step Function
+
+  StepFunctionStateMachine:
+    Type: 'AWS::StepFunctions::StateMachine'
+    Properties:
+      DefinitionString:
+        Fn::Sub:
+          - |-
+            {
+              "Comment": "A state machine that includes Glue job and Lambda function steps",
+              "StartAt": "GlueJobStep",
+              "States": {
+                "GlueJobStep": {
+                  "Type": "Task",
+                  "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                  "Parameters": {
+                    "JobName": "GlueJob_test1"
+                  },
+                  "Next": "LambdaFunctionStep"
+                },
+                "LambdaFunctionStep": {
+                  "Type": "Task",
+                  "Resource": "arn:aws:lambda:${AWSRegion}:${AWSAccountId}:function:1_Lambada_copy_s3_s3_test1",
+                  "Next": "FinalState"
+                },
+                "FinalState": {
+                  "Type": "Pass",
+                  "End": true
+                }
+              }
+            }
+          - AWSAccountId: !Ref AWS::AccountId
+            AWSRegion: !Ref AWS::Region
+      RoleArn: !GetAtt StepFunctionsRole.Arn
