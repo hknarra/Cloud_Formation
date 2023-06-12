@@ -3,7 +3,7 @@ Resources:
   LambdaExecutionRole:
     Type: 'AWS::IAM::Role'
     Properties:
-      RoleName: LambdaExecutionRole1
+      RoleName: LambdaExecutionRole_test1
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -13,20 +13,23 @@ Resources:
                 - lambda.amazonaws.com
             Action: 'sts:AssumeRole'
       ManagedPolicyArns:
-        - arn:aws:iam::************:policy/**-june2023-policy1
+        - arn:aws:iam::434014680348:policy/hk-june2023-policy1
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+        - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
 
   LambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
-      FunctionName: MyLambdaFunction
+      FunctionName: MyLambdaFunction_test1
       Runtime: python3.8
       Handler: index.handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
-        S3Bucket: **-june2023-bucket2
+        S3Bucket: hk-june2023-bucket2
         S3Key: lambda_scripts/20_lambda_file_copy_s3_s3.zip
       Environment:
         Variables:
-          DST_BKT: **-june2023-bucket2
-          SRC_BKT: **-june2023-bucket1
+          DST_BKT: hk-june2023-bucket2
+          SRC_BKT: hk-june2023-bucket1
           SRC_KEY: source_data/hk_source_data1.csv
