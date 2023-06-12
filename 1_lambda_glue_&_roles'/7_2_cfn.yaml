@@ -58,7 +58,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam::434014680348:policy/hk-june2023-policy1
+        - arn:aws:iam::acc_id:policy/hk-june2023-policy1
         - arn:aws:iam::aws:policy/AmazonS3FullAccess
         - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
         - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
@@ -119,7 +119,7 @@ Resources:
       Role: !GetAtt HKGlueServiceRole.Arn
       Command:
         Name: glueetl
-        ScriptLocation: s3://aws-glue-assets-434014680348-us-east-1/scripts/hk_gluejob1-june2023.py
+        ScriptLocation: s3://aws-glue-assets-acc_id-us-east-1/scripts/hk_gluejob1-june2023.py
       DefaultArguments:
         "--job-language": python
       WorkerType: !Ref WorkerType
