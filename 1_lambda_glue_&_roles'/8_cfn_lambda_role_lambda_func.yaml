@@ -13,7 +13,7 @@ Resources:
                 - lambda.amazonaws.com
             Action: 'sts:AssumeRole'
       ManagedPolicyArns:
-        - arn:aws:iam::434014680348:policy/hk-june2023-policy1
+        - arn:aws:iam::acc_id:policy/hk-june2023-policy1
         - arn:aws:iam::aws:policy/AmazonS3FullAccess
         - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
         - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
