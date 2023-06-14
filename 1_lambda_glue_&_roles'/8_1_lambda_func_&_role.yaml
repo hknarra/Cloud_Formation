@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  LambdaExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: LambdaExecutionRole_test1
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::434014680348:policy/hk-june2023-policy1
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+        - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
+
+  LambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: MyLambdaFunction_test1
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import os
+          import boto3
+          
+          def get_env_variable(var_name):
+              msg = "Set the %s environment variable"
+              try:
+                  return os.environ[var_name]
+              except KeyError:
+                  error_msg = msg % var_name
+          
+          
+          def lambda_handler(event, context):
+              # Specify the source and destination bucket names
+              source_bucket_name = get_env_variable('SRC_BKT')
+              destination_bucket_name = get_env_variable('DST_BKT')
+              
+              # Specify the key of the CSV file in the source bucket
+              source_key = get_env_variable('SRC_KEY')
+          
+              # Construct the destination key by removing any prefixes or folders
+              destination_key = 'lambda_copy/' + source_key.split('/')[-1]
+              
+              # Create an S3 client
+              s3 = boto3.client('s3')
+          
+              try:
+                  # Copy the CSV file from the source bucket to the destination bucket
+                  s3.copy_object(
+                      CopySource={
+                          'Bucket': source_bucket_name,
+                          'Key': source_key
+                      },
+                      Bucket=destination_bucket_name,
+                      Key=destination_key
+                  )
+                  
+                  return {
+                      'statusCode': 200,
+                      'body': 'CSV file copied successfully!'
+                  }
+              except Exception as e:
+                  return {
+                      'statusCode': 500,
+                      'body': str(e)
+                  }
+
+#        S3Bucket: hk-june2023-bucket2
+#        S3Key: lambda_scripts/20_lambda_file_copy_s3_s3.zip
+      Environment:
+        Variables:
+          DST_BKT: hk-june2023-bucket2
+          SRC_BKT: hk-june2023-bucket1
+          SRC_KEY: source_data/hk_source_data1.csv

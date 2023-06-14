@@ -1,0 +1,23 @@
+{
+  "Comment": "A state machine that includes Glue job and Lambda function steps",
+  "StartAt": "GlueJobStep",
+  "States": {
+    "GlueJobStep": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "hk_gluejob_jun2023"
+      },
+      "Next": "LambdaFunctionStep"
+    },
+    "LambdaFunctionStep": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:${AWSRegion}:${AWSAccountId}:function:1_lambda_copy_s3_s3",
+      "Next": "FinalState"
+    },
+    "FinalState": {
+      "Type": "Pass",
+      "End": true
+    }
+  }
+}
