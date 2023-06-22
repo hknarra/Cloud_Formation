@@ -1,0 +1,25 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  StepFunctionStateMachine:
+    Type: 'AWS::StepFunctions::StateMachine'
+    Properties:
+      StateMachineName: hk-sm-test1
+      DefinitionS3Location:
+        Bucket: hk-june2023-bucket2
+        Key: state_machines/9_2_cfn_SM_.json
+      RoleArn: !GetAtt StepFunctionsRole.Arn
+  StepFunctionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: StepFunctions_Full_Access_test1
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaRole
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+        - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess

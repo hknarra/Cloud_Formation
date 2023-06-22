@@ -1,0 +1,31 @@
+{
+  "Comment": "A Step Functions state machine with Lambda function and Glue job",
+  "StartAt": "LambdaStep",
+  "States": {
+    "LambdaStep": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": { "Ref": "MyLambdaFunction" },
+        "Payload": {
+          "ResultPath": "$.lambdaOutput"
+        }
+      },
+      "TimeoutSeconds": 300,
+      "End": false,
+      "Next": "GlueJobStep"
+    },
+    "GlueJobStep": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": { "Ref": "MyGlueJob" },
+        "Arguments": {
+          "InputPath.$": "$.lambdaOutput"
+        }
+      },
+      "TimeoutSeconds": 1800,
+      "End": true
+    }
+  }
+}

@@ -17,6 +17,7 @@ Resources:
         - arn:aws:iam::aws:policy/AmazonS3FullAccess
         - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
         - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
+        - arn:aws:iam::aws:policy/CloudWatchFullAccess
 
   LambdaFunction:
     Type: 'AWS::Lambda::Function'
@@ -33,3 +34,16 @@ Resources:
           DST_BKT: hk-june2023-bucket2
           SRC_BKT: hk-june2023-bucket1
           SRC_KEY: source_data/hk_source_data1.csv
+
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/MyLambdaFunction_test1
+
+  MyLambdaFunctionLogGroupPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LambdaFunction
+      Action: "lambda:InvokeFunction"
+      Principal: "logs.amazonaws.com"
+      SourceArn: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/MyLambdaFunction_test1:*"
