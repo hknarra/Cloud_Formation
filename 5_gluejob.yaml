@@ -1,0 +1,24 @@
+Resources:
+  MyGlueJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: my-example-job
+      Role: arn:aws:iam::434014680348:role/Role_Full_access_june2023
+      Command:
+        Name: glueetl
+        ScriptLocation: s3://aws-glue-assets-434014680348-us-east-1/scripts/hk_gluejob1-june2023.py
+      DefaultArguments:
+        "--job-language": python
+        "--job-bookmark-option": 'job-bookmark-disable'
+        "--TempDir": "s3://aws-glue-assets-434014680348-us-east-1/scripts/temp/" #This is temp path
+        "--enable-continuous-cloudwatch-log": "true"
+        "--enable-continuous-log-filter": "true"
+        "--enable-s3-parquet-optimized-committer": "true"
+        "--enable-spark-ui": "true"
+        "--enable-metrics": "true"
+        #"--enable-zeppelin-ui": "true"
+        "--extra-py-files": "s3://my-bkt1/scripts/extras.zip"
+        "--spark-event-logs-path": "s3://aws-glue-assets-434014680348-us-east-1/sparkHistoryLogs/" #spark UI logs path
+      GlueVersion: 3.0
+      WorkerType: G.1X
+      NumberOfWorkers: 2
