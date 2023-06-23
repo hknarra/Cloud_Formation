@@ -1,4 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  BucketName:
+    Type: String
 Resources:
   LambdaExecutionRole:
     Type: 'AWS::IAM::Role'
@@ -33,3 +36,25 @@ Resources:
           DST_BKT: hk-june2023-bucket2
           SRC_BKT: hk-june2023-bucket1
           SRC_KEY: source_data/hk_source_data1.csv
+
+
+  MyBucketEventPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub 'arn:aws:s3:::${BucketName}'
+
+  Bucket:
+    Type: AWS::S3::Bucket
+    DependsOn:
+      - MyBucketEventPermission
+    Properties:
+      BucketName: !Ref BucketName
+      AccessControl: Private
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt LambdaFunction.Arn
+
