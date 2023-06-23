@@ -1,0 +1,17 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: KMS policy.
+
+Resources:
+# creation of KMS policy for decryption
+  NHKKMSPolicy:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      ManagedPolicyName: test-kms-policy1
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action:
+              - "kms:Decrypt"
+              - "kms:GenerateDataKey"
+            Resource: "*"

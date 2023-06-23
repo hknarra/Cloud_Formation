@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  MyS3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: step-func-sc-cfn-bucket
+
+  MyGlueJob:
+    Type: 'AWS::Glue::Job'
+    Properties:
+      Name: my-glue-job
+      Role: !GetAtt MyGlueJobRole.Arn
+      Command:
+        Name: glueetl
+        ScriptLocation: s3://step-func-sc-cfn-bucket/glue_script.py
+      #DefaultArguments:
+      #  '--extra-jars': 's3://step-func-sc-cfn-bucket/jars/'
+      ExecutionProperty:
+        MaxConcurrentRuns: 1
+      Connections:
+        Connections: [my-connection]
+
+  MyGlueJobRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AWSGlueServiceRole'
+        - 'arn:aws:iam::aws:policy/AmazonS3FullAccess'
+
+  MyStepFunctionStateMachine:
+    Type: 'AWS::StepFunctions::StateMachine'
+    Properties:
+      DefinitionString:
+        !Sub |
+          {
+            "Comment": "A Step Functions state machine that triggers the Glue job",
+            "StartAt": "TriggerGlueJob",
+            "States": {
+              "TriggerGlueJob": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                "Parameters": {
+                  "JobName": "my-glue-job"
+                },
+                "End": true
+              }
+            }
+          }

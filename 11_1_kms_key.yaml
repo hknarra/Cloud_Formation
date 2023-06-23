@@ -1,0 +1,19 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: KMS Key.
+
+Resources:
+  MyKMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: My KMS key
+      KeyPolicy:
+        Version: 2012-10-17
+        Statement:
+          - Sid: Allow administration of the key
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action:
+              - kms:*
+            Resource: "*"
+      KeyAlias: Test1_kms_key
