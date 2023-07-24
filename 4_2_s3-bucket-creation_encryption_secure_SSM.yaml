@@ -1,0 +1,18 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  KmsKey:
+    Type: String
+    Default: 'arn:aws:kms:us-east-1:123456789012:key/b91585fa-4a21-4c84-bd0c-0af51f3e45a2'
+Resources:
+  MyS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: '{{resolve:ssm:/hk/s3bucket/name3:1}}'
+      AccessControl: Private
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !Ref KmsKey
+      VersioningConfiguration:
+        Status: Enabled
