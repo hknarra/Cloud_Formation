@@ -1,7 +1,12 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Parameters:
   BucketName:
+    Description: 'This is S3 bucket name parameter'
+    Default: /hk/s3bucket/name1
+    Type: AWS::SSM::Parameter::Value<String>
+  KmsKey:
     Type: String
+    Default: 'arn:aws:kms:us-east-1:88888888:key/8888888888888888888'
 Resources:
   MyS3Bucket:
     Type: AWS::S3::Bucket
