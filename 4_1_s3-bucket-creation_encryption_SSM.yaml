@@ -12,7 +12,7 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: aws:kms
-              KMSMAsterKetID: arn:aws:kms:us-east-1:434014680348:key/b91585fa-4a21-4c84-bd0c-0af51f3e45a2
+              KMSMAsterKetID: !Ref KMSKey
       VersioningConfiguration:
         Status: Enabled
       Tags:
