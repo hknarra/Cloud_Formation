@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "This template is for EC2 instance creation"
+Parameters:
+  ApplicationName:
+    Description: "Name of application"
+    Type: String
+    AllowedPattern: '[a-z][0-9a-z-]*[0-9a-z]'
+    MinLength: 3
+    MaxLength: 21
+    ConstraintDescription: 'Application name should be b/n 3 and 21 characters'
+  AmiId:
+    Description: 'Give ami Id here'
+    Type: String
+    Default: 'ami-0f34c5ae932e6f0e4'
+  InstanceType:
+    Description: 'Instance type'
+    Type: String
+    Default: 't2.micro'
+  MyKeyName:
+    Description: Select the key name from the list
+    Type: AWS::EC2::KeyPair::KeyName
+
+Resources:
+  DevEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref MyKeyName
+      SecurityGroups:
+        - default
+      Tags:
+        - Key: Name
+          Value: !Ref ApplicationName
+Outputs:
+  InstanceId:
+    Value: !Ref DevEC2Instance
+    Description: ID of the created EC2 instance
