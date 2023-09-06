@@ -1,0 +1,17 @@
+{
+    "CatalogId": "434014680348",
+    "Principal": {
+        "DataLakePrincipalIdentifier": "arn:aws:iam::434014680348:role/Glue_Full_Access_test1"
+    },
+    "Resource": {
+        "Table": {
+            "CatalogId": "434014680348",
+            "DatabaseName": "default",
+            "TableWildcard": {}
+        }
+    },
+    "Permissions": [
+        "ALL"
+    ],
+    "PermissionsWithGrantOption": ["ALL"]
+}

@@ -1,0 +1,79 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "This template is for a complete pipeline"
+
+Parameters:
+  MaxConcurrentRuns:
+    Description: 'Maximum concurrent runs for glue job'
+    Type: Number
+    Default: 1
+  GlueVersion:
+    Type: String
+    Default: '1.0'
+  Tempdir:
+    Type: String
+    Description: Glue temporary directory.
+    Default: 's3://aws-glue-assets-434014680348-us-east-1/scripts/temp/'
+
+Resources:
+  GlueJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: Glue-shell-job-2
+      Role: !Ref HKGlueServiceRole
+      Command:
+        Name: pythonshell
+        ScriptLocation: ./src/glue_job/main_script  # Local path to your Python script
+      DefaultArguments:
+        "--extra-args": "value"
+        "--python-version": "3"  # Specify the Python version here
+        "--enable-glue-catalog": "true"
+        "--enable-metrics": "true"
+        "--enable-continuous-cloudwatch-log": "true"
+        "--Tempdir": !Ref Tempdir
+      ExecutionProperty:
+        MaxConcurrentRuns: !Ref MaxConcurrentRuns
+      GlueVersion: !Ref GlueVersion
+
+  HKGlueServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: Glue_Full_Access_test2
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+        - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
+        - arn:aws:iam::aws:policy/AWSLakeFormationDataAdmin
+      Policies:
+        - PolicyName: LakeFormationPermissionGrantPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lakeformation:GrantPermissions
+                Resource: "*"
+# Add role to Datalake administrators
+  SampleDataLakeSettings:
+    Type: AWS::LakeFormation::DataLakeSettings
+    Properties:
+      Admins:
+        - DataLakePrincipalIdentifier: !GetAtt HKGlueServiceRole.Arn
+
+  LakeFormationPermissions:
+    Type: AWS::LakeFormation::Permissions
+    Properties:
+      DataLakePrincipal:
+        DataLakePrincipalIdentifier: "arn:aws:iam::434014680348:role/Glue_Full_Access_test1"
+      Permissions:
+        - ALL
+      PermissionsWithGrantOption:
+        - ALL
+      Resource:
+        DatabaseResource:
+          Name: "default"
