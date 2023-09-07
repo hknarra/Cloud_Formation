@@ -12,7 +12,7 @@ Parameters:
   Tempdir:
     Type: String
     Description: Glue temporary directory.
-    Default: 's3://aws-glue-assets-434014680348-us-east-1/scripts/temp/'
+    Default: 's3://aws-glue-assets-1111111111111-us-east-1/scripts/temp/'
 
 Resources:
   GlueJob:
