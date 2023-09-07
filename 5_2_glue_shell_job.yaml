@@ -1,0 +1,124 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "This template is for a complete pipeline"
+
+Parameters:
+  MaxConcurrentRuns:
+    Description: 'Maximum concurrent runs for glue job'
+    Type: Number
+    Default: 1
+  GlueVersion:
+    Type: String
+    Default: '1.0'
+  Tempdir:
+    Type: String
+    Description: Glue temporary directory.
+    Default: 's3://aws-glue-assets-434014680348-us-east-1/scripts/temp/'
+
+Resources:
+  GlueJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: Glue-shell-job-5
+      Role: !Ref HKGlueServiceRole
+      Command:
+        Name: pythonshell
+        PythonVersion: "3.9"
+        ScriptLocation: s3://aws-glue-assets-434014680348-us-east-1/scripts/delete_athena_table-logger-fucntions.py  # Local path to your Python script
+      DefaultArguments:
+        "--extra-args": "value"
+        #"--job-language": "python"
+        #"--python-version": "3.9"  # Specify the Python version here
+        "--enable-glue-catalog": "true"
+        "--enable-metrics": "true"
+        "--enable-continuous-cloudwatch-log": "true"
+        "--Tempdir": !Ref Tempdir
+      ExecutionProperty:
+        MaxConcurrentRuns: !Ref MaxConcurrentRuns
+      GlueVersion: !Ref GlueVersion
+
+  HKGlueServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: Glue_Full_Access_test_5
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+        - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
+        - arn:aws:iam::aws:policy/AWSLakeFormationDataAdmin
+      Policies:
+        - PolicyName: LakeFormationPermissionGrantPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lakeformation:GrantPermissions
+                Resource: "*"
+# Add role to Datalake administrators
+  SampleDataLakeSettings:
+    Type: AWS::LakeFormation::DataLakeSettings
+    Properties:
+      Admins:
+        - DataLakePrincipalIdentifier: !GetAtt HKGlueServiceRole.Arn
+
+  LakeFormationPermissions1:
+    Type: AWS::LakeFormation::Permissions
+    Properties:
+      DataLakePrincipal:
+        DataLakePrincipalIdentifier: !GetAtt HKGlueServiceRole.Arn
+      Permissions:
+        - ALL
+      PermissionsWithGrantOption:
+        - ALL
+      Resource:
+        DatabaseResource:
+          Name: "default"
+
+  TablePermissions1:
+    Type: AWS::LakeFormation::Permissions
+    Properties:
+      DataLakePrincipal:
+        DataLakePrincipalIdentifier: !GetAtt HKGlueServiceRole.Arn
+      Permissions:
+        - ALL
+      PermissionsWithGrantOption:
+        - ALL
+      Resource:
+        TableResource:
+          DatabaseName: "default"
+          TableWildcard: {}
+
+#  ColumnPermissions:
+#    Type: AWS::LakeFormation::Permissions
+#    Properties:
+#      DataLakePrincipal:
+#        DataLakePrincipalIdentifier: !GetAtt HKGlueServiceRole.Arn
+#      Permissions:
+#        - ALL
+#      PermissionsWithGrantOption:
+#        - ALL
+#      Resource:
+#        Column:
+#          DatabaseName: "default"
+#          TableWildcard: {}
+#          ExcludedColumnNames:
+#            - String  # Use "*" to grant permissions for all columns
+
+  LakeFormationPermissions2:
+    Type: AWS::LakeFormation::Permissions
+    Properties:
+      DataLakePrincipal:
+        DataLakePrincipalIdentifier: !GetAtt HKGlueServiceRole.Arn
+      Permissions:
+        - ALL
+      PermissionsWithGrantOption:
+        - ALL
+      Resource:
+        DatabaseResource:
+          Name: "hk_db1_june2023"
