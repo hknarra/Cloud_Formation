@@ -1,0 +1,42 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "IAM role creation"
+
+Parameters:
+  ApplicationName:
+    Description: "Name of the application"
+    Type: String
+    AllowedPattern: '[a-z][0-9a-z-]*[0-9a-z]'
+    Default: 'hk-cfn-full-template'
+    MinLength: 3
+    MaxLength: 150
+    ConstraintDescription: "Between 3 and 150 characters"
+
+Resources:
+  NHKIamRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+                - glue.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSLambda_FullAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      RoleName: 'role-from-cfn2-jan29'
+      Tags:
+        - Key: "Environment"
+          Value: "Production"
+        - Key: "Project"
+          Value: "XYZ"
+
+# Add role to Datalake administrators
+  SampleDataLakeSettings:
+    Type: AWS::LakeFormation::DataLakeSettings
+    Properties:
+      Admins:
+        - DataLakePrincipalIdentifier: !GetAtt NHKIamRole.Arn
