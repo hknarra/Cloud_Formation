@@ -1,4 +1,4 @@
-ETL pipeline from raw account to Staging account
+ETL pipeline from Source account to Staging account
 ===========================================
 Following services have been designed to be a reusable product
 
