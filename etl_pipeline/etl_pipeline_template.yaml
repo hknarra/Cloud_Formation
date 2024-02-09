@@ -1,0 +1,495 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-11
+Description: "This template is for complete pipeline"
+
+#
+# Parameters
+Parameters:
+  ApplicationName:
+    Description: "Name of application"
+    Type: String
+    AllowedPattern: '[a-z][0-9a-z-]*[0-9a-z]'
+    Default: 'hk-cfn-full-template'
+    MinLength: 3
+    MaxLength: 21
+    ConstraintDescription: b/n 3 and 21 characters
+  CatalogAPIGWID:
+    Default: "123456789"
+    Description: 'Provide catalog API GW ID'
+    Type: String
+
+  VPCSG:
+    Default: /app/nhkcommonsg/sg
+    Description: This parameter holds VPC security group details.
+    Type: AWS::SSM::Parameter::Value(String) # retrieved from AWS Systems manager
+  Subnet1Param:
+    Default: /app/vpc/ipam/1/Subnet1
+    Description: This parameter holds the network subnet details of IPAM
+    Type: AWS::SSM::Parameter::Value<String>
+  Subnet2Param:
+    Default: /app/vpc/ipam/1/Subnet2
+    Description: This parameter holds the network subnet details of IPAM
+    Type: AWS::SSM::Parameter::Value<String>
+  Subnet3Param:
+    Default: /app/vpc/ipam/1/Subnet3
+    Description: This parameter holds the network subnet details of IPAM
+    Type: AWS::SSM::Parameter::Value<String>
+  CidrRange:
+    Description: VPC cidr range
+    Type: String
+    Default: '00.00.00.00/00'
+  VpcId:
+    Description: VPC ID
+    Type: AWS::EC2::VPC::Id
+    Default: 'vpc-0vpcid123456789'
+
+  LambdaMemorySize:
+    Description: 'The size of the memory in MB allocated per invocation of the function'
+    Type: Number
+    MinValue: 128
+    MaxValue: 10240
+    Default: 128
+  LambdaTimeout:
+    Default: '900' # in sec
+    Description: Timeout in seconds for the Lambda function
+    Type: Number
+  LambdaPythonRuntime:
+    Type: String
+    Description: 'Lambda python run time'
+    Default: 'python3.8'
+  LambdaLoadFunctionName:
+    Type: String
+    Description: 'Lambda Load Function Name'
+#  LambdaLoadFunctionName:
+#    Type: String
+#    Description: 'Lambda Load Function Name'
+#  LambdaLoadFunctionName:
+#    Type: String
+#    Description: 'Lambda Load Function Name'
+
+  GlueTimeout:
+    Description: 'Timeout value for glue job in Minutes'
+    Type: Number
+    Default: 2880
+  MaxConcurrentRuns:
+    Description: "Maximum number of concurrent runs for the Glue job"
+    Type: Number
+    Default: 8
+  WorkerType:
+    Description: "Type of worker for the Glue job"
+    Type: String
+    Default: "Standard"
+    AllowedValues: ["Standard", "G.1X", "G.2X"]
+    ConstraintDescription: "Invalid worker type specified"
+  NumberOfWorkers:
+    Description: "Number of workers for the Glue job"
+    Type: Number
+    Default: 5
+    MinValue: 2
+    MaxValue: 14
+    ConstraintDescription: "Number of workers must be between 2 and 14"
+  GlueVersion:
+    Type: String
+    Description: Glue version
+    Default: '4.0'
+  TempDir:
+    Type: String
+    Description: Glue temp directory
+    Default: 's3://aws-glue-assets-<acc-num>-us-east-1/.temporary/'
+  SparkEventsLogPath:
+    Type: String
+    Description: Glue spark events Log path
+    Default: 's3://aws-glue-assets-<acc-num>-us-east-1/sparkHistoryLogs/'
+  ScriptLocation:
+    Type: String
+    Description: Glue script location
+    #Default: 's3://bucket1/cfn_glue_scripts/hk_glue_raw_staging.py'
+    Default: '.src/glue_jobs/athena_main_script'
+  PackageLoc:
+    Description: 'Location of S3 where python installations are stored'
+    Type: String
+    Default: "s3:bucket/python/aws_requests_auth-0.4.....whl,s3://...wrang..whl"
+  AthenaGlueMaxConcurrentRuns:
+    Description: 'Concurrent runs for Glue Job'
+    Type: Number
+    Default: 10
+
+
+
+  NHKNotificationSnsTopic:
+    Description: "SNS topic for notifications"
+    Type: String
+    #Default: 'arn for'
+  NHKNotificationSNSKMSKey:
+    Description: "SNS topic for notifications"
+    Type: String
+    #Default: 'arn for'
+  HKNetcoolNotificationSNSTopic:
+    Description: "Netcool notification target (e.g., email address, webhook URL)"
+    Type: String
+    #default: 'arn for'
+  HKNetcoolNotificationSNSKMSKey:
+    Description: "Netcool KMS key ID or ARN for encryption/decryption"
+    Type: String
+    #default: 'arn for kmskey'
+  BucketName:
+    Type: String
+    Description: 'Bckt name'
+  ScriptsPathBucket:
+    Type: String
+    Description: 'Bckt name'
+    Default: 'my-bckt1'
+  StateMachineBucketKey:
+    Type: String
+    Description: SM script bckt key
+    Default: 'cfn_sm_dfntn/hk_sm_etl_definition.json'
+  KMSMasterKey:
+    Type: String
+    Description: ''
+    Default: '89............11'
+
+Mappings:
+  PrefixList:
+    us-east-1:
+      PLId: "pl-123456"
+    us-east-2:
+      PLId: "pl-223456"
+    us-east-3:
+      PLId: "pl-223456"
+    us-east-4:
+      PLId: "pl-223456"
+
+# Resources:
+  NhkKMSPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !sub 'nhk-${ApplicationName}-kmspolicy'
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey
+            Resource: "*"
+
+# GLue role
+  GlueJobRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+        - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
+        - arn:aws:iam::aws:policy/AWSLakeFormationDataAdmin
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AWSLambdaFullAccess
+        - arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess
+        - arn:aws:iam::aws:policy/AWSStepFunctionsConsoleFullAccess
+      Policies:
+        - PolicyName: !Sub nhk-${ApplicationName}-lambda-load-policy-
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: execute-api:Invoke
+                Resource: "*"
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: "*"
+        - PolicyName: !Sub nhk-${ApplicationName}-kms-policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "kms:GenerateDataKey*"
+                  - "kms:Decrypt"
+                  - "kms:Encrypt"
+                  - "kms:ReEncrypt*"
+                  - "kms:DescribeKey"
+                  - "kms:GenerateDataKeyWithoutPlaintext"
+
+        - PolicyName: !Sub nhk-${ApplicationName}-log-policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:AssociateKMSKey"
+                  - "logs:CreateLogGroup"
+                  - "logs:PutLogEvents"
+                Resource:
+                  - "arn:aws:logs:*:*:/aws-glue/*"
+      PermissionBoundary: !Sub 'arn:aws:iam::${AWS::AccountId}:policy/permission_boundary_name'
+      RoleName: !Sub 'nhk-${ApplicationName}-gluejob-sprktrans-role'
+
+# Lambda Role
+  LambdaLoadRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchFullAccess
+        - arn:aws:iam::aws:policy/AmazonEC2FullAccess
+        - arn:aws:iam::aws:policy/AWSLambdaExecute
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AWSLambdaFullAccess
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess
+        - arn:aws:iam::aws:policy/AmazonEventBridgeFullAccess
+      Policies:
+        - PolicyName: !Sub nhk-${ApplicationName}-lambda-load-policy1
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: execute-api:Invoke
+                Resource: "*"
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: "*"
+        - PolicyName: !Sub nhk-${ApplicationName}-kms-policy1
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "kms:GenerateDataKey*"
+                  - "kms:Decrypt"
+                  - "kms:Encrypt"
+                  - "kms:ReEncrypt*"
+                  - "kms:DescribeKey"
+                  - "kms:GenerateDataKeyWithoutPlaintext"
+      PermissionBoundary: !Sub 'arn:aws:iam::${AWS::AccountId}:policy/permission_boundary_name'
+      RoleName: !Sub 'nhk-${ApplicationName}-lambda-load-role'
+
+
+# SM role
+  StateMachineIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchFullAccess
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+        - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
+        - arn:aws:iam::aws:policy/AWSLakeFormationDataAdmin
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AWSLambdaFullAccess
+        - arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess
+        - arn:aws:iam::aws:policy/AWSStepFunctionsConsoleFullAccess
+      Policies:
+        - PolicyName: !Sub nhk-${ApplicationName}-kms-policy3
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "kms:GenerateDataKey*"
+                  - "kms:Decrypt"
+                  - "kms:Encrypt"
+                  - "kms:ReEncrypt*"
+                  - "kms:DescribeKey"
+                  - "kms:GenerateDataKeyWithoutPlaintext"
+      PermissionBoundary: !Sub 'arn:aws:iam::${AWS::AccountId}:policy/permission_boundary_name'
+      RoleName: !Sub 'nhk-${ApplicationName}-sm-role'
+
+# KMS key creation
+  NhkCmk:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS cmk for use with AWS::Logs::LogGroup resource provider
+      KeyUsage: ENCRYPT_DECRYPT
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: cmk-policy
+        Statement:
+          - Sid: Allow administration of the key
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"
+            Action: kms:*
+            Resource: "*"
+          - Sid: Cloudwatch log permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub "logs.${AWS::Region}.${AWS::URLSuffix}"
+            Action: kms:*
+            Resource: "*"
+#      KeyAlias: test1_kms_key
+  CmkAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/log_associate
+      TargetKeyId: !Ref NhkCmk
+
+# Log group
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/MyLambdaloadFunction_test2
+      RetentionInDays: 1800
+      KmsKeyId: !GetAttr NhkCmk.Arn
+
+  MyLambdaFunctionLogGroupPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LambdaFunction
+      Action: "lambda:InvokeFunction"
+      Principal: "logs.amazonaws.com"
+      SourceArn: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${LambdaLoadFunctionName}:*"
+
+#Glue SG and connections
+############################
+  HKGlueConnectionSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: hk-cfn-test-sg -common sg
+      GroupName: hk-cfn-test-sg
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        CidrIp: 0.0.0.0/0
+        FromPort: 22
+        ToPort: 22
+      VpcId: 'vpc-00000000000000'
+
+  NHKSG1:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      IpProtocol: -1
+      GroupId: !Ref HKGlueConnectionSG
+      SourceSecurityGroupId: !Ref HKGlueConnectionSG
+  NHKSG2:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      IpProtocol: -1
+      GroupId: !Ref HKGlueConnectionSG
+      SourceSecurityGroupId: !Ref HKGlueConnectionSG
+  NHKSG3:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      IpProtocol: tcp
+      FromPort: 0
+      ToPort: 65535
+      GroupId: !Ref HKGlueConnectionSG
+      SourceSecurityGroupId: !Ref HKGlueConnectionSG
+  HKGLueConnection1:
+    Type: AWS::Glue::Connection
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      ConnectionInput: 'NETWORK'
+      Name: nhk-glue-connection1
+      PhysicalConnectionRequirements:
+        AvailabilityZone: ! Sub '${AWS::Region}a'
+        SecurityGroupIdList:
+          - !Ref HKGlueConnectionSG
+        SubnetId: !Ref Subnet1Param
+  HKGLueConnection2:
+    Type: AWS::Glue::Connection
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      ConnectionInput: 'NETWORK'
+      Name: nhk-glue-connection2
+      PhysicalConnectionRequirements:
+        AvailabilityZone: ! Sub '${AWS::Region}b'
+        SecurityGroupIdList:
+          - !Ref HKGlueConnectionSG
+        SubnetId: !Ref Subnet2Param
+  HKGLueConnection3:
+    Type: AWS::Glue::Connection
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      ConnectionInput: 'NETWORK'
+      Name: nhk-glue-connection3
+      PhysicalConnectionRequirements:
+        AvailabilityZone: ! Sub '${AWS::Region}c'
+        SecurityGroupIdList:
+          - !Ref HKGlueConnectionSG
+        SubnetId: !Ref Subnet3Param
+
+# ETL Job:
+  MyGlueJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: !Sub hk-Gluejob-${ApplicationName}
+      Role: !Ref GlueJobRole
+      Command:
+        Name: glueetl
+        #ScriptLocation: s3://aws-glue-assets-000000000000-us-east-1/scripts/hk_gluejob1-june2023.py
+        ScriptLocation: ./src/athena_glue_job/athena_main_script
+      ExecutionProperty:
+        MaxConcurrentRuns: !Ref MaxConcurrentRuns
+      GlueVersion: !Ref GlueVersion
+      Connections:
+        Connections:
+          - !Ref HKGLueConnection1
+          - !Ref HKGLueConnection2
+          - !Ref HKGLueConnection3
+      WorkerType: !Ref WorkerType
+      NumberOfWorkers: 2
+      DefaultArguments:
+        "--job-language": 'python 3' #python
+        "--job-bookmark-option": 'job-bookmark-disable'
+        "--TempDir": "s3://aws-glue-assets-0000000000-us-east-1/scripts/temp/" #This is temp path
+        "--enable-continuous-cloudwatch-log": "true"
+        "--enable-auto-scaling": "true"
+        #"--enable-continuous-log-filter": "true"
+        "--enable-s3-parquet-optimized-committer": "true"
+        "--enable-spark-ui": "true"
+        "--enable-metrics": "true"
+        #"--enable-zeppelin-ui": "true"
+        "--extra-py-files": "s3://my-bkt1/scripts/extras.zip" # !Ref PackageLoc
+        "--spark-event-logs-path": "s3://aws-glue-assets-434014680348-us-east-1/sparkHistoryLogs/" #spark UI logs path
+        "--conf": "spark.sql.parquet.writeLegacyFormat=true"
+
+
+  LambdaFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: ./src/file_load_lambda
+      FunctionName: MyLambdaFunction_test2
+#      Code:
+#        S3Bucket: hk-june2023-bucket2
+#        S3Key: lambda_scripts/20_lambda_file_copy_s3_s3.zip
+      Handler: lambda_script1.lambda_handler
+      Environment:
+        Variables:
+#          DST_BKT: hk-june2023-bucket2
+#          SRC_BKT: hk-june2023-bucket1
+#          SRC_KEY: source_data/hk_source_data1.csv
+           API_GW_ID: !Ref ''
+           FUNCTION_NAME: !Ref ''
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.8
+      MemorySize: !Ref ''
+      Timeout: !Ref ''
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref 'VPCSG'
+        SubnetIds:
+          - !Ref Subnet1Param
+          - !Ref Subnet2Param
+          - !Ref Subnet3Param
+
+
